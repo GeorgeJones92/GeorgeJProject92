@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>HubMap | Interactive Map</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="description" content="The official interactive map of the City of Aberdeen, South Dakota.">
+    <meta name="keywords" content="Aberdeen, South Dakota, map, GIS, geographic, information, system">
+    <meta name="author" content="City of Aberdeen. The code of this document is hereby dedicated to the public domain.">
+    <link rel="icon" type="image/png" href="resources/favicon.png" />
+
+    <!-- Google analytics -->
+    <script>
+        /*
+        (function(i, s, o, g, r, a, m) {
+            i['GoogleAnalyticsObject'] = r;
+            i[r] = i[r] || function() {
+                (i[r].q = i[r].q || []).push(arguments)
+            }, i[r].l = 1 * new Date();
+            a = s.createElement(o),
+                m = s.getElementsByTagName(o)[0];
+            a.async = 1;
+            a.src = g;
+            m.parentNode.insertBefore(a, m)
+        })(window, document, 'script', '//www.google-analytics.com/analytics.js', 'ga');
+
+        ga('create', 'UA-69386794-3', 'auto');
+        ga('send', 'pageview');
+        */
+    </script>
+    
+      <!-- External libraries and APIs -->
+    <script src="resources/jquery.min.js"></script>
+    <script src="resources/leaflet/leaflet.js"></script>
+    <script src="resources/leaflet-measure/dist/leaflet-measure.min.js"></script>
+    <script src="resources/leaflet-locatecontrol/dist/L.Control.Locate.min.js"></script>
+    <script src="resources/leaflet-plugins/control/Permalink.js"></script>
+    <script src="resources/leaflet-defaultextent/dist/leaflet.defaultextent.js"></script>
+    <script src="resources/leaflet-plugins/control/Permalink.Layer.js"></script>
+    <script src="resources/leaflet-plugins/control/Permalink.Overlay.js"></script>
+    <script src="resources/Fuse/src/fuse.min.js"></script>
+    
+    <!-- Layer definitions -->
+    <script src="basemap-list.js"></script>
+    <script src="overlay-list.js"></script>
+
+    <!-- External fonts -->
+    <link href='https://fonts.googleapis.com/css?family=Fira+Sans' rel='stylesheet' type='text/css'>
+    <link href='https://fonts.googleapis.com/css?family=Montserrat' rel='stylesheet' type='text/css'>
+    
+    <!-- External CSS -->
+    <link rel="stylesheet" href="resources/w3.css" />
+    <link rel="stylesheet" href="resources/w3-color-theme.css" />
+    <link rel="stylesheet" href="resources/w3-color-theme-historic.css" />
+    <link rel="stylesheet" href="resources/leaflet/leaflet.css" />
+    <link rel="stylesheet" href="resources/font-awesome/css/font-awesome.min.css" />
+    <link rel="stylesheet" href="resources/leaflet-defaultextent/dist/leaflet.defaultextent.css" />
+    <link rel="stylesheet" href="resources/leaflet-measure/dist/leaflet-measure.css" />
+    <link rel="stylesheet" href="resources/leaflet-locatecontrol/dist/L.Control.Locate.min.css" />
+    <link rel="stylesheet" href="style.css" />
+	
+	<link rel="stylesheet" href="resources/w3.css">
+	<link rel="stylesheet" href="resources/w3-color-theme.css"/>
+	
+</head>    
+<script>    
+    /* FUNCTION OPENING HELP MODAL ON FIRST VISIT */
+        function firstIntro() {
+            if (localStorage.getItem('hubmapPreviousVisit') !== 'yes') {
+                getHelpContent();
+                $('#helpTitle').html("WELCOME TO ABERDEEN'S INTERACTIVE MAP");
+                $('#help').css('display', 'block');
+            }
+        };
+    /*FUNCTION OPENING HELP MODAL ON FIRST VISIT */
+        function firstIntro() {
+            if(localStorage.getItem('hubmapPreviousVisit') !== 'yes') {
+                    getHelpContent();
+                    $('#').html("");
+                    $('#help').css('display', 'block');
+                    }
+            };
+		
+    
+    /* FUNCTION SWITCHING BASEMAP */
+        function switchBasemapTo(layer) {
+            for (x in basemapList) {
+                theMap.removeLayer(window[basemapList[x].layerName]);
+            }
+            theMap.addLayer(window[layer]);
+        };
+
+    /* FUNCTION PREVIEWING OVERLAYS */  
+        function previewOverlayTo(layer) {
+            for (x in overlayList) {
+                theMap.removeLayer(window[overlayList[x].layerName]);
+            }
+            theMap.addLayer(window[layer]);
+            theMap.addLayer(Roads);
+        };
+		function previewOverlayTo(layer) {
+			for(x in overlayList) {
+				theMap.removeLayer(window[overlayList[x].layerName]);
+				}
+			theMap.addLayer(window[layer]);
+			theMap.addLayer(Roads);
+			};
+    /* FUNCTION TOGGLING OVERLAYS */
+        function toggleOverlay(layer) {
+            if (theMap.hasLayer(layer)) {
+                theMap.removeLayer(layer);
+            } else {
+                theMap.addLayer(layer);
+            }
+        };
+    
+    /* FUNCTION HIGHLIGHTING ACTIVE LAYER BUTTONS */
+        function highlightButtons() {
+            for (x in basemapList) {
+                var layerName = basemapList[x].layerName;
+                var buttonName = 'button_' + layerName;
+                if (theMap.hasLayer(window[layerName])) {
+                    document.getElementById(buttonName).className = 'w3-btn w3-margin-4 w3-theme-d2 imagery-toggle';
+                } else {
+                    document.getElementById(buttonName).className = 'w3-btn w3-margin-4 w3-theme-l4 imagery-toggle';
+                }
+            }          
+            for (x in overlayList) {
+                var layerName = overlayList[x].layerName;
+                var buttonName = 'button_' + layerName;
+                if (theMap.hasLayer(window[layerName])) {
+                    document.getElementById(buttonName).className = 'w3-btn w3-margin-8 w3-padding-0 w3-theme-d2 overlay-toggle';
+                } else {
+                    document.getElementById(buttonName).className = 'w3-btn w3-margin-8 w3-padding-0 w3-theme-l4 overlay-toggle';
+                }
+            }
+        };
+</script>
+    
+<body onload="firstIntro()">
+
+    <div id="wrapper" style="width:100%; height:100%; margin:auto; position:relative">
+        <div id="header" class="w3-top w3-theme-d3 w3-container w3-card-4" style="height:50px; opacity:0.93">
+            <img class="w3-left w3-hide-small w3-padding-right w3-padding-bottom w3-padding-top" src="resources/hubmap_logo.svg" alt="Go to HubMap home" style="cursor:pointer; height:100%" onclick="location.assign('https://gis.aberdeen.sd.us/hubmap')">
+            <img class="w3-left w3-hide-medium w3-hide-large w3-padding-right w3-padding-bottom w3-padding-top" src="resources/hubmap_icon.svg" alt="Go to HubMap home" style="cursor:pointer; height:100%" onclick="location.assign('https://gis.aberdeen.sd.us/hubmap')">
+            <a class="w3-right w3-btn" style="position:relative; top:15%" onclick="$('#layerSelection').css('display', 'block'); $('#infoPanel').css('display', 'none'); $('#searchPanel').css('display', 'none'); $('#help').css('display', 'none'); highlightButtons(); $('#layerSearchTerm').val(''); thelayerSearch();"><i class="fa fa-database" aria-hidden="true"></i><span class="w3-hide-small w3-margin-0" style="font-family:'Montserrat', sans-serif">&ensp;LAYERS</span></a>
+            <a class="w3-right w3-btn w3-margin-right" style="position:relative; top:15%" onclick="makeAddressList(); makePlatList(); $('#searchPanel').css('display', 'block'); $('#layerSelection').css('display', 'none'); $('#infoPanel').css('display', 'none')"><i class="fa fa-search" aria-hidden="true"></i><span class="w3-hide-small w3-margin-0" style="font-family:'Montserrat', sans-serif">&ensp;SEARCH</span></a>
+            <a class="w3-right w3-btn w3-margin-right" style="position:relative; top:15%" onclick="getHelpContent(); $('#help').css('display', 'block'); $('#layerSelection').css('display', 'none'); $('#infoPanel').css('display', 'none'); $('#searchPanel').css('display', 'none')"><i class="fa fa-question-circle" aria-hidden="true"></i><span class="w3-hide-small w3-margin-0" style="font-family:'Montserrat', sans-serif">&ensp;HELP</span></a>
+            <p class="w3-center w3-margin-12 w3-hide-small w3-hide-medium" style="font-family:'Montserrat', sans-serif; font-size:1.3em; letter-spacing:0.6px">INTERACTIVE MAP</p>
+        </div>
+
+        <div id="mapDiv" style="position:absolute; height:100%; width:100%; z-index:0"></div>
+    </div>
+
+    <script>
+        /* MAP ELEMENT */
+        var mapOptions = {
+            minZoom: 12,
+            maxZoom: 20,
+            doubleClickZoom: false,
+            attributionControl: true,
+            maxBounds: ([
+                [45.37, -98.6],
+                [45.55, -98.32]
+            ]),
+            maxBoundsViscosity: 1
+        };
+
+        var theMap = L.map('mapDiv', mapOptions);
+        theMap.setView([45.465, -98.475], 14);
+
+        /* LAYER CREATION */
+        var basemaps = {};
+        function createBasemapLayers() {
+            for (x in basemapList) {
+                var layerName = basemapList[x].layerName;
+                window[layerName] = L.tileLayer('https://gis.aberdeen.sd.us/geoserver/gwc/service/wmts?service=WMTS&request=GetTile&VERSION=1.0.0&layer=AberdeenWeb:' + layerName + '&format=image/jpeg&TileMatrixSet=EPSG:3857(LZ)&TileMatrix=EPSG:900913:{z}&TileRow={y}&TileCol={x}', {
+                    transparent: false,
+                    maxZoom: 20,
+                    attribution: 'Imagery: ' + (basemapList[x].attribution).replace('(PD)','<a href="https://en.wikipedia.org/wiki/Public_domain" target="_blank">(PD)</a>').replace('(CC-BY-SA)','<a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank">(CC-BY-SA)</a>')
+                });
+	 basemaps[layerName] = window[layerName];
+		}
+        };     
+        createBasemapLayers();
+        function createBasemapButtons() {
+            for (x in basemapList) {
+                var basemap = basemapList[x];
+                $('#imagerySelect').append('<a id="button_' + basemap.layerName + '" class="w3-btn w3-margin-4 w3-theme-l4 imagery-toggle" onclick="switchBasemapTo(\'' + basemap.layerName + '\')"><img alt="" src="https://gis.aberdeen.sd.us/geoserver/gwc/service/wmts?service=WMTS&request=GetTile&VERSION=1.0.0&layer=AberdeenWeb:' + basemap.layerName + '&format=image/jpeg&TileMatrixSet=EPSG:3857(LZ)&TileMatrix=EPSG:900913:15&TileRow=11727&TileCol=7419" class="w3-margin-4" style="width:80px"><br>' + basemap.title + '</a>');   
+            }
+        };      
+       setTimeout(createBasemapButtons, 1);
+
+        theMap.addLayer(Imagery20142016);
+        
+        var overlays = {};
+        function createOverlayLayers() {
+            for (x in overlayList) {
+                var layerName = overlayList[x].layerName;
+                window[layerName] = L.tileLayer('https://localhost:2020/geoserver/gwc/service/wmts?service=WMTS&request=GetTile&VERSION=1.0.0&layer=AberdeenWeb:' + layerName + '&format=image/png&TileMatrixSet=EPSG:3857(LZ)&TileMatrix=EPSG:900913:{z}&TileRow={y}&TileCol={x}', {
+                    transparent: true,
+                    maxZoom: 20,
+                    attribution: (overlayList[x].attribution).replace('(PD)','<a href="https://en.wikipedia.org/wiki/Public_domain" target="_blank">(PD)</a>').replace('(CC-BY-SA)','<a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank">(CC-BY-SA)</a>')
+                });
+                overlays[layerName] = window[layerName];  
+            }
+        }; 
+        createOverlayLayers();
+        function createOverlayButtons() {
+            for (x in overlayList) {
+                var overlay = overlayList[x];
+                $('#overlayButtons').append('<a id="button_' + overlay.layerName + '" class="w3-btn w3-margin-2 w3-padding-0 w3-theme-l4" onclick="toggleOverlay(' + overlay.layerName + ');">' + overlay.title + '</a>');   
+            }
+        };
+        setTimeout(createOverlayButtons, 1);
+        
+        theMap.addLayer(Roads);
+        
+        function bindWMSPopup(layerName, queryLayer, style, content) {
+            if (theMap.hasLayer(window[layerName])) {
+                function openWMSPopup(data) {
+                    if (data.features[0]) {
+                        properties = data.features[0].properties;
+                        if (typeof content === 'string') {
+                            var popupContent = content;
+                            var keys = Object.keys(properties);
+                            var values = Object.values(properties);
+                            for (i in keys) {
+                            popupContent = popupContent.replace(new RegExp('!' + keys[i] + '!', 'g'), values[i]);
+                            }
+                        }
+                        if (typeof content === 'function') {
+                            var popupContent = content();
+                        }
+                        var WMSPopup = L.popup();
+                        WMSPopup.setLatLng(clickLocation);
+                        WMSPopup.setContent(popupContent);
+                        WMSPopup.openOn(theMap);
+                    }
+                };
+                $.ajax({
+                    url: 'https://gis.aberdeen.sd.us/geoserver/wms?service=WMS&version=1.1.1&request=GetFeatureInfo&layers=AberdeenWeb:' + layerName + '&styles=AberdeenWeb:' + style + '&query_layers=AberdeenWeb:' + queryLayer + '&srs=EPSG:4326&bbox=' + minX + ',' + minY + ',' + maxX + ',' + maxY + '&width=1&height=1&x=0&y=0&feature_count=1&info_format=application/json',
+                    success: openWMSPopup
+                });
+            }
+        };
+        
+    
+        
+        /* INFO TILES */
+        function bindInfoTile(queryLayer, maxFeatures, style, previewOverlay, title, content) {
+            for (let i = 0; i < maxFeatures; i++) {
+                if (!$('#tile' + queryLayer + i).length) {
+          $('#infoTiles').append('<div id="tile' + queryLayer + i + '" class="w3-card-4 w3-margin w3-theme-l3" style="position: relative; display: none;"><i class="fa fa-external-link" aria-hidden="true" style="position:absolute; right:3px; top:3px; color:white; font-size:0.6em"></i><h6 class="w3-margin-0 w3-theme-d3" style="font-size:80%; text-align:center; letter-spacing:-0.1px; cursor:pointer"  onclick="previewOverlayTo(\'' + previewOverlay + '\');">' + title + '</h6><div id="tile' + queryLayer + i + 'Content"></div>')
+
+	                }
+            }
+            function updateTileInfo(data) {
+                for (let i = 0; i < maxFeatures; i++) {
+                    if (data.features[i]) {
+                        $('#tile' + queryLayer + i).css('display', 'block');
+                        properties = data.features[i].properties;
+                        if (typeof content === 'string') {
+                            var tileContent = content;
+                            	var values = Object.values(properties);
+				var keys = Object.keys(properties);
+                            for (j in keys) {
+                                tileContent = tileContent.replace(new RegExp('!' + keys[j] + '!', 'g'), values[j]);
+                            }
+                        }
+                        if (typeof content === 'function') {
+                            var tileContent = content();
+                        }
+                  $('#tile' + queryLayer + i + 'Content').html(tileContent);
+
+                    } else {
+                        $('#tile' + queryLayer + i).css('display', 'none');
+                    }
+                }
+            };
+            $.ajax({
+                url: 'https://gis.aberdeen.sd.us/geoserver/wms?service=WMS&version=1.1.1&request=GetFeatureInfo&layers=AberdeenWeb:' + queryLayer + '&styles=AberdeenWeb:' + style + '&query_layers=AberdeenWeb:' + queryLayer + '&srs=EPSG:4326&bbox=' + minX + ',' + minY + ',' + maxX + ',' + maxY + '&width=1&height=1&x=0&y=0&feature_count=' + maxFeatures + '&info_format=application/json',
+                success: updateTileInfo
+            });
+        };
+     /* snow popup contents, enalble clicking on the map */
+
+          
+       /*this is already the description of the snow routes */
+        var snowPopupContents = {
+            '1':'<h6 style="margin-bottom:0">Zone 1</h6><p>Parking is prohibited on this street after a snow removal alert has been issued. Parking remains prohibited until the street is cleared from curb to curb.</p><p>Per <a href="https://www.municode.com/library/sd/aberdeen/codes/code_of_ordinances?nodeId=PTIICOOR_CH46STSIOTPUPL_ARTVIISNRE" target="_blank">Aberdeen Ordinance 10-09-06</a>, shoveling or blading snow from the sidewalk into this street is only allowed prior to the completion of snow removal operations on this street.</p><p>You can read and subscribe to snow removal alerts at the <a href="http://aberdeen.sd.us/AlertCenter.aspx" target="_blank">Alert Center on aberdeen.sd.us</a>.</p>',
+            '2A':'<h6 style="margin-bottom:0">Zone 2 (East-West)</h6><p>Parking is prohibited on this street after 1:00pm on the date indicated in the snow removal alert message found in the <a href="http://www.aberdeen.sd.us/AlertCenter.aspx" target="_blank">Alert Center</a>. Parking is prohibited until 7:00pm the same day, or until the street is cleared from curb to curb - whichever comes earlier.</p><p>Per <a href="https://www.municode.com/library/sd/aberdeen/codes/code_of_ordinances?nodeId=PTIICOOR_CH46STSIOTPUPL_ARTVIISNRE" target="_blank">Aberdeen Ordinance 10-09-06</a>, it is unlawful to shovel or blade snow into this street at any time.</p><p>You can read and subscribe to snow removal alerts at the <a href="http://aberdeen.sd.us/AlertCenter.aspx" target="_blank">Alert Center on aberdeen.sd.us</a>.</p>',
+            '2S':'<h6 style="margin-bottom:0">Zone 2 (North-South)</h6><p>Parking is prohibited on this street after 7:00am on the date indicated in the snow removal alert message found in the <a href="http://www.aberdeen.sd.us/AlertCenter.aspx" target="_blank">Alert Center</a>. Parking is prohibited until 1:00pm the same day, or until the street is cleared from curb to curb - whichever comes earlier.</p><p>Per <a href="https://www.municode.com/library/sd/aberdeen/codes/code_of_ordinances?nodeId=PTIICOOR_CH46STSIOTPUPL_ARTVIISNRE" target="_blank">Aberdeen Ordinance 10-09-06</a>, it is unlawful to shovel or blade snow into this street at any time.</p><p>You can read and subscribe to snow removal alerts at the <a href="http://aberdeen.sd.us/AlertCenter.aspx" target="_blank">Alert Center on aberdeen.sd.us</a>.</p>',
+            '3':'<h6 style="margin-bottom:0">Zone 3</h6><p>Parking is prohibited on this street after a snow removal alert has been issued. Parking remains prohibited until the street is cleared from curb to curb.</p><p>Per <a href="https://www.municode.com/library/sd/aberdeen/codes/code_of_ordinances?nodeId=PTIICOOR_CH46STSIOTPUPL_ARTVIISNRE" target="_blank">Aberdeen Ordinance 10-09-06</a>, it is unlawful to shovel or blade snow into this street at any time.</p><p>You can read and subscribe to snow removal alerts at the <a href="http://aberdeen.sd.us/AlertCenter.aspx" target="_blank">Alert Center on aberdeen.sd.us</a>.</p>',
+            'E':'<h6 style="margin-bottom:0;color:indianred">Emergency Route</h6><p>Parking is prohibited on this street whenever two or more inches of snow have fallen, <b>even if a snow removal alert has not been issued</b>. Parking remains prohibited until the street is cleared from curb to curb.</p><p>Per <a href="https://www.municode.com/library/sd/aberdeen/codes/code_of_ordinances?nodeId=PTIICOOR_CH46STSIOTPUPL_ARTVIISNRE" target="_blank">Aberdeen Ordinance 10-09-06</a>, it is unlawful to shovel or blade snow into this street at any time.</p><p>You can read and subscribe to snow removal alerts at the <a href="http://aberdeen.sd.us/AlertCenter.aspx" target="_blank">Alert Center on aberdeen.sd.us</a>.</p>'
+        };
+	 theMap.on('click', function(e) {
+            clickLocation = e.latlng;
+            minX = (clickLocation.lng - 0.00001).toFixed(5);
+            minY = (clickLocation.lat - 0.00001).toFixed(5);
+            maxX = clickLocation.lng.toFixed(5);
+            maxY = clickLocation.lat.toFixed(5);
+            addressHeading = 0;	
+  	  
+            bindWMSPopup('FloodHazards', 'FloodLOMC', 'polygon', '!letter_type!&ensp;<b>!case!</b><br><a href="https://gis.aberdeen.sd.us/downloads/flood/LOMC/!case!.pdf" target="_blank">View determination</a>');
+            bindWMSPopup('DroneAreas', 'DroneAreas', 'polygon', '<b>!name!</b><br>The operation of drones is !type! in this area, subject to <a href="https://www.municode.com/library/sd/aberdeen/codes/code_of_ordinances?nodeId=PTIICOOR_CH10AV_ARTIINGE_S10-1DE" target="_blank">Aberdeen Ordinance 15-12-04</a>.');
+            bindWMSPopup('CSZ', 'CommunitySafetyZoneFacilities', 'polygon', '<b>!name!</b><br><br>This facility, as a <b>!type!</b>, is surrounded by a Community Safety Zone with a radius of 500 feet (152 m).<br><br><a href="http://sor.sd.gov/" target="_blank">View the South Dakota Sex Offender Registry</a><br><a href="http://sdlegislature.gov/Statutes/Codified_Laws/DisplayStatute.aspx?Statute=22-24B" target="_blank">View relevant state law (SDCL &sect; 22-24B)</a>');
+            bindWMSPopup('FireHydrants', 'FireHydrants', 'QueryPoint', '<b>Hydrant !hyd_num!</b><br>Year of installation: !mod_yr!<br>Flow rate: !flow_class!');
+            bindWMSPopup('CouncilDist', 'CouncilDist', 'polygon', '<b>!name! District</b><br>Mayor: !mayor!<br>Councilors: !councilor1!, !councilor2!<br><a href="http://www.aberdeen.sd.us/index.aspx?nid=74" target="_blank">More information</a>');
+            bindWMSPopup('WaterServiceBook', 'WaterServiceBook', 'polygon', '<a href="https://gis.aberdeen.sd.us/downloads/utilities/water/!oldsheet!.PDF" target="_blank">View water service book page (!oldsheet!)</a>');
+            bindWMSPopup('SnowRemoval', 'SnowRemoval', 'line', function() {return snowPopupContents[properties.name]});           
+	});   
+          theMap.on('click', function(e) {
+            clickLocation = e.latlng;
+            minX = (clickLocation.lng - 0.000001).toFixed(6);
+            minY = (clickLocation.lat - 0.000001).toFixed(6);
+            maxX = clickLocation.lng.toFixed(6);
+            maxY = clickLocation.lat.toFixed(6);
+            addressHeading = 0;	
+
+	   
+            
+            bindInfoTile('DEM2010Ground', 1, 'raster', 'DEM2010Contours2ft', 'POSITION', function() {elev_m = properties.GRAY_INDEX; return '<p class="w3-margin-0" style="text-align:center; font-family:Montserrat; padding-top:2px">' + clickLocation.lat.toFixed(6) + '&deg;N,&ensp;' + clickLocation.lng.toFixed(6) * -1 + '&deg;W</p><p class="w3-margin-0" style="text-align:center; font-family:Montserrat; padding-bottom:2px">' + (properties.GRAY_INDEX / 0.3048).toFixed(1) + ' ft&ensp;(' + properties.GRAY_INDEX.toFixed(1) + ' m)</p>'})
+            bindInfoTile('Addresses', 1, 'QueryPoint', 'Addresses', 'ADDRESS', function() {addressHeading = properties.angle_to_road; return '<h3 class="w3-margin-4 w3-padding-bottom" style="text-align:center; line-height:1.2em; letter-spacing:-0.3px">' + properties.label + '</h3>'});
+            bindInfoTile('Zoning', 2, 'polygon', 'Zoning', 'ZONING DISTRICT', '<h3 class="w3-margin-0" style="text-align:center; letter-spacing:-0.3px">!class!</h3><p class="w3-margin-0" style="font-size:80%; text-align:center"><a href="!ord_url!" target="_blank"><u>!description!</u></a></p>');
+            bindInfoTile('PLSS', 1, 'polygon', 'PLSS', 'PUBLIC LAND SURVEY SYSTEM', '<h3 class="w3-margin-0" style="text-align:center; letter-spacing:-0.3px">!quarter!&nbsp;!section!</h3><p class="w3-margin-0" style="text-align:center">T !township! N&emsp;R !range! W</p><p class="w3-margin-0" style="position:absolute; right:4px; bottom:2px; font-size:0.7em">!oldsheet!</p>');    
+            bindInfoTile('AllLots', 1, 'polygon', 'AllLots', 'PLAT', function() {if (properties.special !== null) {var pt1 = properties.special} if (properties.block !== null) {var pt1 = 'Lot ' + properties.lot + ', Block ' + properties.block} if (properties.lot !== null && properties.block === null) {var pt1 = 'Lot ' + properties.lot} if (properties.addition !== null) {var pt2 = '<a href="https://gis.aberdeen.sd.us/downloads/plats/' + properties.locallink + '" target="_blank"><u>' + properties.addition + '</u></a>'} else {var pt2 = ''} return '<h3 class="w3-margin-4" style="text-align:center; line-height:1.2em; letter-spacing:-0.3px">' + pt1 + '</h3><p class="w3-margin-0" style="font-size:80%; text-align:center">' + pt2 + '</p>'});
+            bindInfoTile('MaxStructureElevation', 1, 'raster', 'DroneAreas', 'HEIGHT RESTRICTION', function() {if (properties.GRAY_INDEX > 0) {return '<h3 class="w3-margin-4" style="text-align:center; line-height:1.2em; letter-spacing:-0.3px">' + (properties.GRAY_INDEX - (elev_m / 0.3048)).toFixed(0) + ' ft&ensp;(' + ((properties.GRAY_INDEX * 0.3048) - elev_m).toFixed(0) + ' m)</h3><p class="w3-margin-0" style="font-size:80%; text-align:center"><a href="http://www.ecfr.gov/cgi-bin/text-idx?rgn=div5&node=14:2.0.1.2.9" target="_blank"><u>Part 77, Federal Aviation Regulations</u></a></p>'} else {$('#tileMaxStructureElevation0').css('display', 'none')}});
+            bindInfoTile('FloodHazards', 1, 'polygon', 'FloodHazards', 'FLOOD HAZARD', '<h3 class="w3-margin-4" style="text-align:center; line-height:1.2em; letter-spacing:-0.3px">Zone !fld_zone!</h3><p class="w3-margin-0" style="font-size:80%; text-align:center">!sfha!<br>!zone_subty!</p>');
+            bindInfoTile('HistoricDist', 2, 'polygon', 'HistoricDist', 'HISTORIC PLACE', '<h3 class="w3-margin-4" style="text-align:center; line-height:1.2em; letter-spacing:-0.3px">!name!</h3><p class="w3-margin-0" style="font-size:80%; text-align:center">NRHP ID: !nrhp_id!<br><a href="!doc!" target="_blank"><u>View narrative</u></a><a href="!photo!" target="_blank"><u>View photos</u></a></p>');
+            bindInfoTile('TIFDistrict', 2, 'polygon', 'TIFDistrict', 'TIF DISTRICT', '<h3 class="w3-margin-0" style="text-align:center; letter-spacing:-0.3px">!tifdnum!</h3><p class="w3-margin-0" style="font-size:80%; text-align:center">!name!<br><a href="https://gis.aberdeen.sd.us/downloads/tif/!tifdnum!.pdf" target="_blank">Established by resolution <u>!resnum!</u></a></p>');
+	    bindInfoTile('beacon_lots', 1, 'polygon', 'beacon_lots', 'PARCEL LEGAL DESCRIPTION', '<h3 class="w3-margin-2" style="text-align:center; line-height:1.2em; letter-spacing:-0.3px>!legal_description!</h3><p class="w3-margin-0" style="font-size:40%; text-align:center">!legal_description!</p><br>');
+            bindInfoTile('garbage_route', 1, 'line', 'GarbageRoute', 'GARBAGE DAY', '<h3 class="w3-margin-2 w3-padding-bottom" style="text-align:center; line-height:1.2em">!day!</h3>');
+	    bindInfoTile('Jurisdictions', 1, 'polygon', 'Jurisdictions', 'JURISDICTION', '<h3 class="w3-margin-2 w3-padding-bottom" style="text-align:center; line-height:1.2em">!type!</h3>');
+		
+        });      
+        
+        /* QUERY LOCATION MARKER */
+        var queryMarker;
+        theMap.on('click', function(e) {
+            if (typeof(queryMarker) === 'undefined') {
+                queryMarker = new L.marker(e.latlng);
+	           queryMarker.addTo(theMap);
+
+            } else {
+                queryMarker.setLatLng(e.latlng);
+            }
+        });
+        theMap.on('movestart', function() {
+            if (typeof(queryMarker) !== 'undefined') {
+                queryMarker.removeFrom(theMap);
+            }
+        });
+        theMap.on('click', function() {
+            queryMarker.addTo(theMap);
+        });
+        /* VERSION AND ATTRIBUTION BAR (CONTROL) */
+        var controlAttribution = L.control.attribution({
+            position: 'bottomleft',
+            prefix: 'v3.14.5 | <a href="http://leafletjs.com" target="_blank">Leaflet</a> | Vectors: &copy; City of Aberdeen <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank">(CC-BY-SA)</a>'
+        });
+        controlAttribution.addTo(theMap);
+
+        /* SCALE BAR (CONTROL) */
+        var controlScaleBar = L.control.scale({
+            position: 'bottomleft'
+        });
+        controlScaleBar.addTo(theMap);
+
+        /* LOCATE TOOL (CONTROL) */
+        L.control.locate().addTo(theMap);
+
+        /* MEASURE TOOL (CONTROL) */
+        var controlMeasureOptions = {
+            position: 'topleft',
+            primaryLengthUnit: 'feet',
+            secondaryLengthUnit: 'meters',
+            primaryAreaUnit: 'sqfeet',
+            secondaryAreaUnit: 'acres'
+        };
+        var controlMeasure = L.control.measure(controlMeasureOptions);
+        controlMeasure.addTo(theMap);
+
+        /* LAYERS LIST (CONTROL) */
+        var controlLayers = L.control.layers(basemaps, overlays);
+        controlLayers.addTo(theMap);
+        
+        /* PERMALINK CONTROL */
+        var controlPermalinkOptions = {
+            text: '',
+            layers: controlLayers,
+            useLocation: true
+        };
+        var controlPermalink = new L.Control.Permalink(controlPermalinkOptions);
+        controlPermalink.addTo(theMap);
+    </script>
+    
+           
+    <!-- INFO TILES PANEL -->
+    <div id="infoPanel" class="w3-sidenav w3-animate-right w3-theme-l1" style="position:absolute; right:0; top:50px; width:90%; max-width:260px; opacity:0.93; display:none">
+        <header class="w3-container w3-theme-d2">
+            <span onclick="$('#infoPanel').css('display', 'none')" class="w3-closebtn">&times;</span>
+            <h5 class="w3-left" style="letter-spacing:0.2px">AT THIS LOCATION...</h5>
+        </header>
+        <div class="w3-container w3-theme-d2">
+            <a class="w3-btn w3-margin-bottom" style="font-family:'Montserrat'" onclick="openStreetView(clickLocation.lat, clickLocation.lng, addressHeading);"><i class="fa fa-street-view" aria-hidden="true"></i>&ensp;STREET VIEW</a>
+        </div>
+        <div id="infoTiles" style="margin-bottom:70px"><!--This div will be populated with info tiles--></div>
+    </div>
+
+    <!-- BASEMAP SELECTION MODAL -->
+    <div id="basemapSelection" class="w3-modal" style="opacity:0.96">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span onclick="$('#basemapSelection').css('display', 'none')" class="w3-closebtn">&times;</span>
+                <h4 class="w3-margin-0">BASEMAPS</h4>
+                <p class="w3-margin-0 w3-padding-bottom" style="font-size:75%">General reference layers used as a background for other content. Only one basemap may be active at a time.</p>
+            </header>
+            <div class="w3-container w3-theme-l1">
+                <h5>AERIAL/SATELLITE IMAGERY</h5>
+            </div>          
+            <div class="w3-theme-l2 w3-container">
+                <div id="imagerySelect" class="w3-ul w3-padding-top w3-padding-bottom" style="text-align:center">
+                    <!-- This div will be populated with basemaps defined in basemap-list.js -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HELP MODAL -->
+    <div id="help" class="w3-modal" style="opacity:0.96">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme-d2">
+                <span onclick="$('#help').css('display', 'none'); localStorage.setItem('hubmapPreviousVisit', 'yes');" class="w3-closebtn">&times;</span>
+                <h4 id="helpTitle">HELP</h4>
+            </header>
+            <!--The contents of help-content.html will appear in the div below-->
+            <div id="help-content"></div>
+        </div>
+    </div>
+    
+    <script>
+        function processHelpContent(data) {
+            $('#help-content').html(data);
+        };
+        function getHelpContent() {
+            if ($('#help-content').html() === '') {
+                $.ajax({
+                    url: 'help-content.html',
+                    dataType: 'html',
+                    success: processHelpContent
+                });
+            }
+        };
+    </script>
+
+    <!-- OVERLAY SELECTION PANEL -->
+    <div id="layerSelection" class="w3-sidenav w3-animate-right w3-theme-l1" style="position:absolute; right:0; top:50px; width:90%; max-width:260px; opacity:0.9; display:none">
+        <header class="w3-container w3-theme-d2">
+            <span onclick="$('#layerSelection').css('display', 'none')" class="w3-closebtn">&times;</span>
+            <h5 class="w3-left">LAYERS</h5>
+        </header>
+
+        <div class="w3-container w3-theme-d2">
+            <a class="w3-btn w3-margin-bottom" style="font-family:'Montserrat'" onclick="$('#basemapSelection').css('display', 'block'); $('#layerSelection').css('display', 'none')">CHANGE BASEMAP</a>
+        </div>
+
+        <script>
+            function thelayerSearch() { //fuse .js options
+                var options = {
+                    id: "title",
+                    caseSensitive: false,
+                    includeScore: false,
+                    shouldSort: true,
+                    tokenize: true,
+                    threshold: 0.2,
+                    location: 0,
+                    distance: 100,
+                    maxPatternLength: 32,
+                    keys: ["title", "keywords"]
+                };
+                
+                var layerQuery = $('#layerSearchTerm').val();
+                var fuse = new Fuse(overlayList, options);
+                var searchResults = fuse.search(layerQuery);
+                
+                for (x in overlayList) {
+                    var title = overlayList[x].title;
+                    var buttonID = 'button_' +  overlayList[x].layerName;
+                    if (searchResults.indexOf(title) == -1) {
+                        document.getElementById(buttonID).style.display = 'none';
+                    } else {
+                        document.getElementById(buttonID).style.display = 'block';
+                    }
+                }
+                /* If no search term is present, show all buttons */
+                if (layerQuery == '') {
+                    var overlayToggles = document.getElementsByClassName('overlay-toggle');
+                    for (let k = 0; k < overlayToggles.length; k++) {
+                        overlayToggles[k].style.display = 'block';
+                    }	
+                }
+            };
+        </script>
+
+        <div class="w3-container w3-theme">
+            <input class="w3-input w3-margin-top w3-margin-bottom w3-padding-0 w3-theme-l2" id="layerSearchTerm" oninput="thelayerSearch();" type="text" style="width:100%" placeholder="Search for a layer or subject...">
+        </div>
+
+        <div id="overlayButtons" style="margin-bottom:70px">
+            <!-- This div will be populated with overlays defined in overlay-list.js -->
+        </div>
+    </div>
+
+    <!-- FEATURE SEARCH PANEL -->  
+        <div id="searchPanel" class="w3-sidenav w3-animate-right w3-theme-l1" style="position:absolute; right:0; top:50px; margin-bottom: 70px; width:90%; max-width:260px; opacity:0.9; display:none">
+        <header class="w3-container w3-theme-d2">
+            <span onclick="$('#searchPanel').css('display', 'none')" class="w3-closebtn">&times;</span>
+            <h5 class="w3-left">SEARCH</h5>
+        </header>
+
+	<!-- Address searching -->
+        <div class="w3-container w3-theme">
+            <h6>BY ADDRESS</h6>
+            <input class="w3-input w3-margin-bottom w3-padding-0 w3-theme-l2" id="addressSearchTerm" oninput="addressSearch();" type="text" style="width:100%" placeholder="Enter an address...">
+        </div>
+
+	<div id="addressResults">
+	<!-- This div will be populated with address search results -->
+	</div>
+
+        <script>
+            /* Create list of addresses */
+            function makeAddressList() {
+                if (typeof addressList === 'undefined') {
+                    $.ajax({
+                        url: 'https://gis.aberdeen.sd.us/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=AberdeenWeb:Addresses&outputFormat=json&propertyName=label',
+                        dataType: 'json',
+                        success: function(data) {addressList = data.features;}
+                    });
+                }
+            };
+
+            /* Search list of addresses and populate results */
+            function addressSearch() {
+                var options = {
+                    id: "properties.label",
+                    caseSensitive: false,
+                    includeScore: false,
+                    shouldSort: true,
+                    tokenize: false,
+                    threshold: 0.3,
+                    location: 0,
+                    distance: 100,
+                    maxPatternLength: 32,
+                    keys: ["properties.label"]
+                };
+                var addressQuery = $('#addressSearchTerm').val();
+                var fuse = new Fuse(addressList, options);
+                var searchResults = fuse.search(addressQuery);
+
+                if (searchResults.length > 5) {
+                    var numResults = 5;
+                } else {
+                    var numResults = searchResults.length;
+                }
+                
+                $('#addressResults').html('');
+                
+                for (let i = 0; i < numResults; i++) {
+                    $('#addressResults').append('<a class="w3-btn w3-margin-8 w3-padding-0 w3-theme-l3" onclick="goToAddress(\'' + searchResults[i] + '\')">' + searchResults[i] + '</a>');
+                }
+            };
+
+            /* Get coordinates of address and go to */
+            function goToAddress(address) {
+                $.ajax({
+                    url: "https://gis.aberdeen.sd.us/geoserver/wfs?service=WFS&version=2.0.0&srsName=EPSG:4326&request=GetFeature&typeName=AberdeenWeb:Addresses&outputFormat=application/json&cql_filter=label='" + address + "'",
+                    dataType: 'json',
+                    success: function(data) {
+                        theMap.setView({lat: data.features[0].geometry.coordinates[1], lng: data.features[0].geometry.coordinates[0]}, 18);
+                        theMap.addLayer(Addresses);
+                        highlightButtons();
+                    }
+                });
+            };
+        </script>
+
+	<!-- Plat searching -->
+        <div class="w3-container w3-theme">
+            <h6>BY PLAT</h6>
+            <input class="w3-input w3-margin-bottom w3-padding-0 w3-theme-l2" id="platSearchTerm" oninput="platSearch();" type="text" style="width:100%" placeholder="Enter a plat name...">
+        </div>
+
+	<div id="platResults">
+	<!-- This div will be populated with plat search results -->
+	</div>
+
+        <!-- Plat searching scripts -->
+        <script>
+            /* Create list of plats */
+            function makePlatList() {
+                if (typeof platList === 'undefined') {
+                    $.ajax({
+                        url: 'https://gis.aberdeen.sd.us/geoserver/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=AberdeenWeb:Lots&outputFormat=json&propertyName=addition',
+                        success: function(data) {platList = data.features;}
+                    });
+                }
+            };
+
+            /* Search list of plats and populate results */
+            function platSearch() {
+                var options = {
+                    id: "properties.addition",
+                    caseSensitive: false,
+                    includeScore: false,
+                    shouldSort: true,
+                    tokenize: false,
+                    threshold: 0.3,
+                    location: 0,
+                    distance: 100,
+                    maxPatternLength: 32,
+                    keys: ["properties.addition"]
+                };
+                
+                var platQuery = $('#platSearchTerm').val();
+                var fuse = new Fuse(platList, options);
+                var searchResultsUnfiltered = fuse.search(platQuery);
+                var searchResults = [];
+                $.each(searchResultsUnfiltered, function(i, e) {
+                    if ($.inArray(e, searchResults) == -1) searchResults.push(e);
+                });
+                
+                if (searchResults.length > 5) {
+                    var numResults = 5;
+                } else {
+                    var numResults = searchResults.length;
+                }
+                
+                $('#platResults').html('');
+                
+                for (let i = 0; i < numResults; i++) {
+                    $('#platResults').append('<a class="w3-btn w3-margin-8 w3-padding-0 w3-theme-l3" style="text-overflow:ellipsis" onclick="goToPlat(\'' + searchResults[i].replace(new RegExp("'", 'g'), "%25").replace(new RegExp("&", 'g'), "%25") + '\')">' + searchResults[i] + '</a>');
+                }
+            };
+
+            /* Get coordinates of a lot corner within plat and go to */
+            function goToPlat(plat) {
+                $.ajax({
+                    url: "https://gis.aberdeen.sd.us/geoserver/wfs?service=WFS&version=1.0.0&srsName=EPSG:4326&request=GetFeature&typeName=AberdeenWeb:Lots&maxFeatures=1&outputFormat=application/json&cql_filter=addition ilike '" + plat + "'",
+                    success: function(data) {
+                        theMap.setView({lng: data.features[0].geometry.coordinates[0][0][0][0], lat: data.features[0].geometry.coordinates[0][0][1][1]}, 16);
+                        theMap.addLayer(AllLots);
+                        highlightButtons();
+                    }
+                });
+            };
+        </script>
+    </div>
+
+    <!-- STREET VIEW MODAL -->
+    <div id="streetViewModal" class="w3-modal" style="opacity:0.96">
+        <div class="w3-modal-content w3-card-4" style="height:83%">
+            <header class="w3-container w3-theme-d2">
+                <span onclick="$('#streetViewModal').css('display', 'none');" class="w3-closebtn w3-green">&times;</span>
+                <h4>STREET VIEW</h4>
+            </header>
+            <div id="streetViewAnswer" class="w3-container w3-theme" style="height:100%"></div>
+        </div>
+    </div>
+<!--functionality controlling special hubmap events--->
+    <script>
+        theMap.on('click', function(e) {
+            queryLat = e.latlng.lat;
+            queryLng = e.latlng.lng;
+        });
+
+        function openStreetView(lat, lng, heading) {
+            var google_api_key = 'AIzaSyBaYIlL8uV0m8Q3busmJxWumYb-43m2TD4';
+            var viewHeading = heading + 180;
+            if (viewHeading > 360) {
+                var viewHeadingMod = viewHeading - 360;
+            } else {
+                var viewHeadingMod = viewHeading;
+            };
+            $('#streetViewAnswer').html('<iframe class="w3-padding-16" style="width:100%; height:100%; border:0" frameborder="0" src="https://www.google.com/maps/embed/v1/streetview?key=' + google_api_key + '&location=' + lat + ',' + lng + '&heading=' + viewHeadingMod + '" allowfullscreen></iframe>');
+            $('#streetViewModal').css('display', 'block');
+        };
+        
+        theMap.on('click', function() {
+            $('#infoPanel').css('display', 'block');
+            $('#layerSelection').css('display', 'none');
+            $('#searchPanel').css('display', 'none');
+            $('#addressSearchTerm').val('');
+	    $('#platSearchTerm').val('');
+	     $('#layerSearchTerm').val('');
+        });
+        theMap.on('movestart', function() {
+            $('#infoPanel').css('display', 'none');
+            $('#layerSelection').css('display', 'none');
+            $('#searchPanel').css('display', 'none');
+            $('#addressSearchTerm').val('');
+            $('#platSearchTerm').val('');
+            $('#layerSearchTerm').val('');
+        });
+        theMap.on('layeradd', highlightButtons);
+	theMap.on('layerremove', highlightButtons);
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+html * {
+    font-family: 'Fira Sans', sans-serif;
+}
+        
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Montserrat', sans-serif;
+}
+        
+html, body {
+    height: 100%;
+    padding: 0;
+    margin: 0;
+}
+        
+.leaflet-control-layers {
+    visibility: hidden !important;
+}
+        
+.leaflet-top {
+    position: relative;
+    top: 50px;
+}
+        
+::-webkit-input-placeholder {
+    font-size: 95%;
+    color: #c6d9ec;
+    font-variant: small-caps;
+}
+        
+::-moz-placeholder {
+    font-size: 95%;
+    color: #c6d9ec;
+    font-variant: small-caps;
+}
+        
+:-ms-input-placeholder {
+    font-size: 95%;
+    color: #c6d9ec;
+    font-variant: small-caps;
+}
+        
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    .leaflet-pane *, .leaflet-control-scale * {
+                visibility: visible !important;
+    }
+}
